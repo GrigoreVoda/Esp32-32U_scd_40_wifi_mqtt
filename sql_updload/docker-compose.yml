@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  mqtt_ingestor:
+    build: .
+    container_name: mqtt_to_pg
+    restart: unless-stopped
+    environment:
+      MQTT_BROKER: "mqtt-broker" #ip adresse
+      MQTT_PORT: "1883"
+
+      PG_HOST: "host.docker.internal" #ip adresse
+      PG_DB: "mqtt"
+      PG_USER: "grigore"
+      PG_PASSWORD: "1"
+
+    # Needed on Linux (Fedora) to reach host PostgreSQL
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
