@@ -1,0 +1,12 @@
+CREATE DATABASE mqtt;
+\c mqtt;
+
+CREATE TABLE sensor_data (
+    id BIGSERIAL PRIMARY KEY,
+    topic TEXT NOT NULL,
+    value DOUBLE PRECISION NOT NULL,
+    ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_topic_ts ON sensor_data(topic, ts DESC);
+CREATE INDEX idx_ts ON sensor_data(ts DESC);
