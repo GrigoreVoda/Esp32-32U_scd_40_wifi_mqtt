@@ -3,55 +3,65 @@ import json
 import psycopg2
 from paho.mqtt import client as mqtt_client
 
-MQTT_BROKER = os.getenv("MQTT_BROKER", "mqtt")
-MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
-
-PG_HOST = os.getenv("PG_HOST", "host.docker.internal")
-PG_DB = os.getenv("PG_DB", "yourdb")
-PG_USER = os.getenv("PG_USER", "youruser")
-PG_PASSWORD = os.getenv("PG_PASSWORD", "yourpassword")
+# 1. DEFINE CONFIG FIRST (at the top level, outside any functions)
+DB_CONFIG = {
+    "host": os.getenv("PG_HOST", "host.docker.internal"),
+    "database": os.getenv("PG_DB", "mqtt"),
+    "user": os.getenv("PG_USER", ""),
+    "password": os.getenv("PG_PASSWORD", "")
+}
 
 TOPICS = [("office/co2", 0), ("office/temp", 0), ("office/hum", 0)]
+topic_cache = {}
 
-def connect_pg():
-    return psycopg2.connect(
-        host=PG_HOST,
-        database=PG_DB,
-        user=PG_USER,
-        password=PG_PASSWORD
+# 2. DEFINE YOUR FUNCTIONS
+def get_sensor_id(cur, topic):
+    if topic in topic_cache:
+        return topic_cache[topic]
+    
+    cur.execute(
+        "INSERT INTO sensors (topic_name) VALUES (%s) "
+        "ON CONFLICT (topic_name) DO UPDATE SET topic_name = EXCLUDED.topic_name "
+        "RETURNING id", (topic,)
     )
-
-conn = connect_pg()
-cur = conn.cursor()
-
-def on_connect(client, userdata, flags, rc):
-    print("Connected to MQTT:", rc)
-    client.subscribe(TOPICS)
+    s_id = cur.fetchone()[0]
+    topic_cache[topic] = s_id
+    return s_id
 
 def on_message(client, userdata, msg):
     try:
+        conn = userdata['conn']
+        cur = conn.cursor()
+        
         payload = msg.payload.decode()
-
-        # try parse as number or JSON
         try:
-            value = float(payload)
+            val = float(payload)
         except:
-            value = float(json.loads(payload))
+            val = float(json.loads(payload))
+
+        s_id = get_sensor_id(cur, msg.topic)
 
         cur.execute(
-            "INSERT INTO sensor_data (topic, value) VALUES (%s, %s)",
-            (msg.topic, value)
+            "INSERT INTO sensor_data (sensor_id, value) VALUES (%s, %s)",
+            (s_id, val)
         )
         conn.commit()
-
-        print(f"{msg.topic}: {value}")
-
+        cur.close()
     except Exception as e:
-        print("Error:", e)
+        print(f"Error in on_message: {e}")
 
-client = mqtt_client.Client()
-client.on_connect = on_connect
-client.on_message = on_message
+# 3. RUN THE MAIN LOGIC
+try:
+    # This line uses the DB_CONFIG defined at the top
+    conn = psycopg2.connect(**DB_CONFIG)
+    print("Successfully connected to Postgres")
+    
+    client = mqtt_client.Client(userdata={'conn': conn})
+    client.on_connect = lambda c, u, f, rc: c.subscribe(TOPICS)
+    client.on_message = on_message
 
-client.connect(MQTT_BROKER, MQTT_PORT)
-client.loop_forever()
+    client.connect(os.getenv("MQTT_BROKER", "mqtt-broker"), 1883)
+    client.loop_forever()
+
+except Exception as e:
+    print(f"Could not start script: {e}")
