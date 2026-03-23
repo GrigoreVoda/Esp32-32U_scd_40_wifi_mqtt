@@ -1,12 +1,17 @@
 CREATE DATABASE mqtt;
 \c mqtt;
 
-CREATE TABLE sensor_data (
-    id BIGSERIAL PRIMARY KEY,
-    topic TEXT NOT NULL,
-    value DOUBLE PRECISION NOT NULL,
-    ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+CREATE TABLE sensors (
+    id SERIAL PRIMARY KEY,
+    topic_name TEXT UNIQUE NOT NULL
 );
 
-CREATE INDEX idx_topic_ts ON sensor_data(topic, ts DESC);
-CREATE INDEX idx_ts ON sensor_data(ts DESC);
+CREATE TABLE sensor_data (
+    sensor_id INT REFERENCES sensors(id),
+    value REAL,
+    ts TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexing for speed and smaller size
+CREATE INDEX idx_sensor_ts ON sensor_data(sensor_id, ts DESC);
