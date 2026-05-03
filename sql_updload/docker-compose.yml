@@ -12,7 +12,7 @@ services:
       PG_HOST: "host.docker.internal" #ip adresse
       PG_DB: "mqtt"
       PG_USER: "grigore"
-      PG_PASSWORD: "1"
+      PG_PASSWORD: ""
 
     # Needed on Linux (Fedora) to reach host PostgreSQL
     extra_hosts:
