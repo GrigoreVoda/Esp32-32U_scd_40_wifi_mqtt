@@ -11,7 +11,7 @@ services:
 
       PG_HOST: "host.docker.internal" #ip adresse
       PG_DB: "mqtt"
-      PG_USER: "grigore"
+      PG_USER: ""
       PG_PASSWORD: ""
 
     # Needed on Linux (Fedora) to reach host PostgreSQL
